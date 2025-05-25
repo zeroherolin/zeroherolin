@@ -1,4 +1,4 @@
-<h1 align="left"> Hi 👋, I'm zeroherolin.</h1>
+<h1 align="left"> Hi 👋, I'm Linz, from China.</h1>
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&duration=3500&pause=1000&width=435&lines=~+A+passionate+Fullstack+Developer!+)](https://git.io/typing-svg)
 
@@ -19,7 +19,7 @@
 
 <table width=100%>
 <tr>
-  <td> <div> <img src="https://github-readme-stats.vercel.app/api?username=zeroherolin&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
+  <td> <div> <img src="https://github-readme-stats.vercel.app/api?username=zeroherolin&show_icons=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
   <td> <div> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=zeroherolin&langs_count=6&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
 </tr>
 </table>
