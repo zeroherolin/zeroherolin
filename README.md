@@ -20,8 +20,8 @@
 <table width=100%>
 <tr>
   <td> <div> <img src="https://github-readme-stats.vercel.app/api?username=zeroherolin&show_icons=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
-  <td> <div> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=zeroherolin&langs_count=6&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
+  <td> <div> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=zeroherolin&show_icons=true&langs_count=6&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
 </tr>
 </table>
 
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=zeroherolin&theme=github-compact" width=100%/>
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=zeroherolin&show_icons=true&theme=github-compact" width=100%/>
