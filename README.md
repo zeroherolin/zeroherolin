@@ -15,7 +15,7 @@
   <a href="https://www.verilog.com/" target="_blank" rel="noreferrer"> <img src="https://img.shields.io/badge/Verilog-blue" alt="verilog" height="25"/> </a>
   <a href="https://www.systemverilog.io/" target="_blank" rel="noreferrer"> <img src="https://img.shields.io/badge/SystemVerilog-8A2BE2" alt="systemverilog" height="25"/> </a>
   <a href="https://www.linux.org/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/linux/linux-original.svg" alt="linux" height="25"/> </a>
-  <a href="https://www.gnu.org/software/bash/" target="_blank" rel="noreferrer"> <img src="assets/bash-logo.png" alt="bash" height="25"/> </a>
+  <a href="https://www.gnu.org/software/bash/" target="_blank" rel="noreferrer"> <img src="assets/bash-logo.jpg" alt="bash" height="25"/> </a>
   <a href="https://www.docker.com/" target="_blank" rel="noreferrer"> <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original-wordmark.svg" alt="docker" height="25"/> </a>
   <a href="https://git-scm.com/" target="_blank" rel="noreferrer"> <img src="https://www.vectorlogo.zone/logos/git-scm/git-scm-icon.svg" alt="git" height="25"/> </a>
   <a href="https://pytorch.org/" target="_blank" rel="noreferrer"> <img src="https://www.vectorlogo.zone/logos/pytorch/pytorch-icon.svg" alt="pytorch" height="25"/> </a>
