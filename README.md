@@ -1,14 +1,4 @@
-<div style="display: flex;">
-  <div style="flex: 1;">
-    <h1>Hi 👋, I'm Linz.</h1>
-  </div>
-  <div style="flex: 1;">
-    <div style="font-size: 1.5em;">
-      <img src="assets/mail-icon.png" height="25"/> Email:
-      <a href="mailto:zeroherolin@outlook.com">zeroherolin@outlook.com</a>
-    </div>
-  </div>
-</div>
+<h1> Hi 👋, I'm Linz. </h1>
 
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&duration=3500&pause=1000&width=600&lines=~+A+passionate+Fullstack+Developer+from+China!)](https://git.io/typing-svg)
 
