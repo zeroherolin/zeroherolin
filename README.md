@@ -1,7 +1,7 @@
 <h1> Hi 👋, I'm Linz. </h1>
 
 <h4>
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&duration=3500&pause=1000&width=620&lines=~+A+passionate+Fullstack+Developer+from+China!"/>
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&duration=3500&pause=1000&width=600&lines=~+A+passionate+Fullstack+Developer+from+China!"/>
   <img src="assets/mail-icon.png" height="15"/> Email:
   <a href="mailto:zeroherolin@outlook.com">zeroherolin@outlook.com</a>
 </h4>
