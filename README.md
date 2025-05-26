@@ -23,8 +23,8 @@
 
 <table width=100%>
 <tr>
-  <td> <div> <img src="https://github-readme-stats.vercel.app/api?username=zeroherolin&show_icons=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
-  <td> <div> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=zeroherolin&show_icons=true&langs_count=6&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
+  <td> <div> <img src="https://github-readme-stats.vercel.app/api?username=zeroherolin&count_private=true&show_icons=true&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
+  <td> <div> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=zeroherolin&count_private=true&langs_count=6&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" height="198"/> </div> </td>
 </tr>
 </table>
 
