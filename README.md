@@ -28,4 +28,4 @@
 </tr>
 </table>
 
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=zeroherolin&show_icons=true&theme=github-compact" width=100%/>
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=zeroherolin&count_private=true&theme=github-compact" width=100%/>
