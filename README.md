@@ -22,15 +22,19 @@
   <a href="https://www.systemverilog.io/" target="_blank" rel="noreferrer"> <img src="https://img.shields.io/badge/SystemVerilog-8A2BE2" alt="systemverilog" height="24"/> </a>
 </h2>
 
-<h2 align="left"> Projects I'm following:
+<h2 align="left"> My Recent Projects:
+  <a href="https://github.com/zeroherolin/sar-dsl">sar-dsl</a>
+  <a href="https://github.com/zeroherolin/dma-sg-cxx-project">dma-sg-cxx-project</a>
+  <a href="https://github.com/zeroherolin/pytorch-nn">pytorch-nn</a>
+</h2>
+
+<h2 align="left"> Projects I'm Following:
   <a href="https://github.com/zeroherolin/llvm-project">llvm</a>
   <a href="https://github.com/zeroherolin/tvm">tvm</a>
   <a href="https://github.com/zeroherolin/Halide">halide</a>
   <a href="https://github.com/zeroherolin/triton">triton</a>
   <a href="https://github.com/zeroherolin/torch-mlir">torch-mlir</a>
-  <a href="https://github.com/zeroherolin/circt">circt</a>
   <a href="https://github.com/zeroherolin/ScaleHLS-HIDA">scalehls</a>
-  <a href="https://github.com/zeroherolin/circt">circt</a>
   <a href="https://github.com/zeroherolin/allo">allo</a>
 </h2>
 
