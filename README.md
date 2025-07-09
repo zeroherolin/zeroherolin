@@ -31,11 +31,9 @@
 <h2 align="left"> Projects I'm Following:
   <a href="https://github.com/zeroherolin/llvm-project">llvm</a>
   <a href="https://github.com/zeroherolin/tvm">tvm</a>
-  <a href="https://github.com/zeroherolin/Halide">halide</a>
   <a href="https://github.com/zeroherolin/triton">triton</a>
   <a href="https://github.com/zeroherolin/torch-mlir">torch-mlir</a>
   <a href="https://github.com/zeroherolin/ScaleHLS-HIDA">scalehls</a>
-  <a href="https://github.com/zeroherolin/allo">allo</a>
 </h2>
 
 <table width=100%>
