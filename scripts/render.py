@@ -70,10 +70,12 @@ PROJECTS = [
      "Labs, exercise answers and slides for the Intelligent Computing Systems course."),
 ]
 
-# Forks by column; every COLUMNS columns make one block of the grid. Software is
-# grouped by topic, running from compilers through kernels and inference to
-# hardware; tutorials, books and courses share one column. Forks missing on
-# GitHub are skipped, and forks not listed here land in a last "Uncategorized" column.
+# Forks by category. Software is grouped by topic, running from compilers through
+# kernels and inference to hardware and agents; each category is a column, and
+# every COLUMNS of them make one block of the grid. Categories in ROW_MAJOR come
+# after the blocks instead, each spread over the full width, row by row: Learning
+# (tutorials, books and courses), then "Uncategorized", which collects forks not
+# listed here. Forks missing on GitHub are skipped.
 FORKS = [
     ("LLVM / MLIR", ["llvm-project", "Polygeist", "mlir-emitc", "pymlir"]),
     ("ML compilers", ["tvm", "tvm-tirx", "torch-mlir", "iree", "Halide"]),
@@ -82,10 +84,11 @@ FORKS = [
     ("LLM inference", ["vllm", "sglang", "DeepInfer"]),
     ("Hardware compilers", ["circt", "allo", "ScaleHLS-HIDA", "pylog"]),
     ("FPGA & radar", ["dma_ip_drivers", "gtkwave", "PLFM_RADAR"]),
+    ("AI agents", ["wechat-cli", "catbus", "Godot-MCP-Native"]),
     ("Learning", ["MLIR-Tutorial", "hands-on-practical-mlir-tutorial", "AdvancedCompiler", "AISystem",
                   "ai-infra-book", "ai-agent-book"]),
-    ("AI agents", ["wechat-cli", "catbus", "Godot-MCP-Native"]),
 ]
+ROW_MAJOR = ("Learning", "Uncategorized")
 
 # Rows under the name, most relevant first. A "#rrggbb" glyph is a swatch in
 # that color (GitHub's language colors; Triton has none, so it borrows a purple);
@@ -335,12 +338,12 @@ def render_fork(name, behind, t):
     return svg(TILE_W, TILE_H, title, "\n".join(body))
 
 
-def render_fork_heading(title, count, height, t):
-    right, base = TILE_W - 12, height - 15
+def render_fork_heading(title, count, height, width, t):
+    right, base = width - 12, height - 15
     body = [text(0, base, title.upper(), 11, t["fg"], weight="700", spacing=1),
             text(right, base, str(count), 11, t["faint"], anchor="end"),
             rule(0, right, base + 8.5, t)]
-    return svg(TILE_W, height, title, "\n".join(body))
+    return svg(width, height, title, "\n".join(body))
 
 
 # -- languages -----------------------------------------------------------------
@@ -393,25 +396,37 @@ def shelf_html():
     return "<pre>" + "\n".join(rows) + "</pre>"
 
 
-def grid_html(columns, upstreams):
+def grid_blocks(columns):
+    """The fork grid top to bottom, as (row_major, categories): column blocks of
+    up to COLUMNS categories side by side, then one block per ROW_MAJOR category."""
+    side = [c for c in columns if c[0] not in ROW_MAJOR]
+    wide = sorted((c for c in columns if c[0] in ROW_MAJOR), key=lambda c: ROW_MAJOR.index(c[0]))
+    return [(False, side[i:i + COLUMNS]) for i in range(0, len(side), COLUMNS)] + [(True, [c]) for c in wide]
+
+
+def grid_html(blocks, upstreams):
     width = f"{100 / COLUMNS:g}%"
     # Fills empty cells, so every row spans COLUMNS tiles; 1px tall, so it never sets a row's height.
     blank = f'<picture><img src="{IMAGES}forks/blank.svg" width="{width}" align="top" alt=""></picture>'
+
+    def tile(name):
+        upstream = upstreams.get(name)
+        alt = f"{name}, a fork of {upstream}" if upstream else name
+        return f'<a href="https://github.com/{USER}/{name}">{picture(f"forks/{name}", alt, width, tooltip=True)}</a>'
+
     tiles = []
-    for start in range(0, len(columns), COLUMNS):
-        block = columns[start:start + COLUMNS]
+    for row_major, block in blocks:
+        if row_major:
+            (title, repos), = block
+            tiles.append(picture(f"forks/_{slug(title)}", title, "100%"))
+            for i in range(0, len(repos), COLUMNS):
+                row = repos[i:i + COLUMNS]
+                tiles += [tile(name) for name in row] + [blank] * (COLUMNS - len(row))
+            continue
         pad = [blank] * (COLUMNS - len(block))
         tiles += [picture(f"forks/_{slug(title)}", title, width) for title, _ in block] + pad
         for row in range(max(len(repos) for _, repos in block)):
-            for _, repos in block:
-                if row < len(repos):
-                    name, upstream = repos[row], upstreams.get(repos[row])
-                    alt = f"{name}, a fork of {upstream}" if upstream else name
-                    tiles.append(f'<a href="https://github.com/{USER}/{name}">'
-                                 f'{picture(f"forks/{name}", alt, width, tooltip=True)}</a>')
-                else:
-                    tiles.append(blank)
-            tiles += pad
+            tiles += [tile(repos[row]) if row < len(repos) else blank for _, repos in block] + pad
     # Tiles must touch: break lines after a tag name rather than between tags.
     return "<p>" + "".join(re.sub(r"^<(\w+)", "<\\1\n", tile) for tile in tiles) + "</p>"
 
@@ -428,7 +443,7 @@ def readme_md(columns, upstreams, shares):
         picture("section-projects", "Projects", "100%"),
         shelf_html(),
         picture("section-forks", "Forks", "100%"),
-        grid_html(columns, upstreams),
+        grid_html(grid_blocks(columns), upstreams),
         picture("section-languages", "Languages", "100%"),
         picture("languages", "Languages by code size: " + ", ".join(lang for lang, _ in shares), "100%"),
     ]
@@ -553,11 +568,12 @@ def main():
             gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
             outputs[f"projects/{name}-{theme}.svg"] = render_project(
                 name, area, desc, repos.get(name, {}), gap_below, t)
-        for i, (title, forks) in enumerate(columns):
-            outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
-                title, len(forks), HEADING_H[i >= COLUMNS], t)
-            for name in forks:
-                outputs[f"forks/{name}-{theme}.svg"] = render_fork(name, behind[name], t)
+        for b, (row_major, block) in enumerate(grid_blocks(columns)):
+            for title, forks in block:
+                outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
+                    title, len(forks), HEADING_H[b > 0], WIDTH if row_major else TILE_W, t)
+                for name in forks:
+                    outputs[f"forks/{name}-{theme}.svg"] = render_fork(name, behind[name], t)
 
     # Start build/ afresh so removed projects and forks disappear.
     shutil.rmtree(BUILD, ignore_errors=True)
