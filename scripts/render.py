@@ -73,9 +73,9 @@ PROJECTS = [
 # Forks by category. Software is grouped by topic, running from compilers through
 # kernels and inference to hardware and agents; each category is a column, and
 # every COLUMNS of them make one block of the grid. Categories in ROW_MAJOR come
-# after the blocks instead, each spread over the full width, row by row: Learning
-# (tutorials, books and courses), then "Uncategorized", which collects forks not
-# listed here. Forks missing on GitHub are skipped.
+# after the blocks: same heading, but their forks fill all columns row by row.
+# They are Learning (tutorials, books and courses), then "Uncategorized", which
+# collects forks not listed here. Forks missing on GitHub are skipped.
 FORKS = [
     ("LLVM / MLIR", ["llvm-project", "Polygeist", "mlir-emitc", "pymlir"]),
     ("ML compilers", ["tvm", "tvm-tirx", "torch-mlir", "iree", "Halide"]),
@@ -306,7 +306,7 @@ def render_project(name, area, desc, repo, gap_below, t):
 
 COLUMNS = 4                            # fork columns per block of the grid
 TILE_W, TILE_H = WIDTH // COLUMNS, 36  # includes a 12px gap on the right
-HEADING_H = (26, 48)                   # heading rows: first block, later blocks (spaced apart)
+HEADING_H = (26, 40)                   # heading rows: first block, later blocks (spaced apart)
 
 
 def compact(n):
@@ -338,12 +338,12 @@ def render_fork(name, behind, t):
     return svg(TILE_W, TILE_H, title, "\n".join(body))
 
 
-def render_fork_heading(title, count, height, width, t):
-    right, base = width - 12, height - 15
+def render_fork_heading(title, count, height, t):
+    right, base = TILE_W - 12, height - 15
     body = [text(0, base, title.upper(), 11, t["fg"], weight="700", spacing=1),
             text(right, base, str(count), 11, t["faint"], anchor="end"),
             rule(0, right, base + 8.5, t)]
-    return svg(width, height, title, "\n".join(body))
+    return svg(TILE_W, height, title, "\n".join(body))
 
 
 # -- languages -----------------------------------------------------------------
@@ -418,7 +418,7 @@ def grid_html(blocks, upstreams):
     for row_major, block in blocks:
         if row_major:
             (title, repos), = block
-            tiles.append(picture(f"forks/_{slug(title)}", title, "100%"))
+            tiles += [picture(f"forks/_{slug(title)}", title, width)] + [blank] * (COLUMNS - 1)
             for i in range(0, len(repos), COLUMNS):
                 row = repos[i:i + COLUMNS]
                 tiles += [tile(name) for name in row] + [blank] * (COLUMNS - len(row))
@@ -568,10 +568,10 @@ def main():
             gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
             outputs[f"projects/{name}-{theme}.svg"] = render_project(
                 name, area, desc, repos.get(name, {}), gap_below, t)
-        for b, (row_major, block) in enumerate(grid_blocks(columns)):
+        for b, (_, block) in enumerate(grid_blocks(columns)):
             for title, forks in block:
                 outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
-                    title, len(forks), HEADING_H[b > 0], WIDTH if row_major else TILE_W, t)
+                    title, len(forks), HEADING_H[b > 0], t)
                 for name in forks:
                     outputs[f"forks/{name}-{theme}.svg"] = render_fork(name, behind[name], t)
 
