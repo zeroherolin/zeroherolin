@@ -1,0 +1,43 @@
+name: render
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"  # Mondays 00:00 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/render.py
+      - assets/icons/**
+      - README.md
+      - .github/workflows/render.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: render
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render images and README sections
+        run: python3 scripts/render.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit if changed
+        run: |
+          git add assets README.md
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update rendered profile"
+          git push
