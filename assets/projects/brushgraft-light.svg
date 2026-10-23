@@ -4,7 +4,6 @@
 <rect x="0.5" y="0.5" width="235.0" height="165.0" rx="8" fill="#ffffff"/>
 <rect x="0.5" y="0.5" width="235.0" height="165.0" rx="8" fill="url(#wash)" stroke="#d1d9e0"/>
 <text class="m" x="18.0" y="31.0" font-size="10" fill="#59636e" letter-spacing="1.5">APP</text>
-<text class="m" x="218.0" y="31.0" font-size="10" fill="#8c959f" text-anchor="end">07</text>
 <text class="m" x="18.0" y="57.0" font-size="15" fill="#1f2328" font-weight="600">brushgraft</text>
 <text class="s" x="18.0" y="79.0" font-size="12" fill="#59636e">Browser image editor that</text>
 <text class="s" x="18.0" y="96.0" font-size="12" fill="#59636e">changes only what you mark and</text>

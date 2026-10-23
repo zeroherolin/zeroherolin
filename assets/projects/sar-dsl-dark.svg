@@ -4,7 +4,6 @@
 <rect x="0.5" y="0.5" width="235.0" height="165.0" rx="8" fill="#0d1117"/>
 <rect x="0.5" y="0.5" width="235.0" height="165.0" rx="8" fill="url(#wash)" stroke="#3d444d"/>
 <text class="m" x="18.0" y="31.0" font-size="10" fill="#9198a1" letter-spacing="1.5">COMPILER</text>
-<text class="m" x="218.0" y="31.0" font-size="10" fill="#656c76" text-anchor="end">01</text>
 <text class="m" x="18.0" y="57.0" font-size="15" fill="#f0f6fc" font-weight="600">sar-dsl</text>
 <text class="s" x="18.0" y="79.0" font-size="12" fill="#9198a1">MLIR compiler for SAR imaging:</text>
 <text class="s" x="18.0" y="96.0" font-size="12" fill="#9198a1">Python in, native CPU code or</text>

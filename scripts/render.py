@@ -5,7 +5,7 @@ Every image has a light and a dark variant; README.md picks one with <picture>.
 
   assets/name-*.svg                the name at the top
   assets/stack-*.svg               languages and tooling
-  assets/section-<name>-*.svg      numbered section titles
+  assets/section-<name>-*.svg      section titles
   assets/projects/<repo>-*.svg     one card per project; stars, forks and language from the API
   assets/forks/<repo>-*.svg        one small card per fork, plus column headings
   assets/languages-*.svg           language share across public non-fork repositories
@@ -225,15 +225,14 @@ def render_stack(t):
 
 # -- section titles ------------------------------------------------------------
 
-def render_section(index, title, count, hint, t):
+def render_section(title, count, hint, t):
     height, base = 56, 40
     caps = title.upper()
-    x = 30 + mono_width(caps, 13, 2.5)
-    body = [text(0, base, index, 12, t["faint"]),
-            text(30, base, caps, 13, t["fg"], weight="700", spacing=2.5)]
+    x = mono_width(caps, 13, 2.5)
+    body = [text(0, base, caps, 13, t["fg"], weight="700", spacing=2.5)]
     if count is not None:
-        body.append(text(x + 8, base, f"{count:02d}", 12, t["muted"]))
-        x += 8 + mono_width(f"{count:02d}", 12)
+        body.append(text(x + 8, base, str(count), 12, t["muted"]))
+        x += 8 + mono_width(str(count), 12)
     end = WIDTH
     if hint:
         body.append(text(WIDTH, base, hint, 10.5, t["muted"], anchor="end", spacing=1))
@@ -248,7 +247,7 @@ CARD_W, CARD_H, CARD_GAP = 236, 166, 12
 SHELF_ROWS = 2  # PROJECTS fill the shelf column by column, top to bottom
 
 
-def render_project(index, name, area, desc, repo, gap_below, t):
+def render_project(name, area, desc, repo, gap_below, t):
     lang = repo.get("language")
     color = COLORS.get(lang, OTHER) if lang else OTHER
     x1, y1 = CARD_W - 0.5, CARD_H - 0.5
@@ -259,8 +258,7 @@ def render_project(index, name, area, desc, repo, gap_below, t):
             f'<stop offset=".55" stop-color="{color}" stop-opacity="0"/></linearGradient>')
     frame = f'x="0.5" y="0.5" width="{x1 - 0.5}" height="{y1 - 0.5}" rx="8"'
     body = [f'<rect {frame} fill="{t["page"]}"/>', f'<rect {frame} fill="url(#wash)" stroke="{t["line"]}"/>',
-            text(left, 31, area.upper(), 10, t["muted"], spacing=1.5),
-            text(right, 31, f"{index:02d}", 10, t["faint"], anchor="end")]
+            text(left, 31, area.upper(), 10, t["muted"], spacing=1.5)]
     label, size = fit(name, 15, right - left, 11)
     body.append(text(left, 57, label, size, t["fg"], weight="600"))
     for i, line in enumerate(wrap(desc, 12, right - left, 3)):
@@ -300,7 +298,7 @@ def render_fork(name, t):
 def render_fork_heading(title, count, height, t):
     right, base = TILE_W - 12, height - 15
     body = [text(0, base, title.upper(), 11, t["fg"], weight="700", spacing=1),
-            text(right, base, f"{count:02d}", 11, t["faint"], anchor="end"),
+            text(right, base, str(count), 11, t["faint"], anchor="end"),
             rule(0, right, base + 8.5, t)]
     return svg(TILE_W, height, title, "\n".join(body))
 
@@ -445,17 +443,16 @@ def main():
     for theme, t in THEMES.items():
         outputs[f"name-{theme}.svg"] = render_name(t)
         outputs[f"stack-{theme}.svg"] = render_stack(t)
-        outputs[f"section-projects-{theme}.svg"] = render_section(
-            "01", "Projects", len(PROJECTS), "SCROLL →", t)
-        outputs[f"section-forks-{theme}.svg"] = render_section("02", "Forks", fork_count, None, t)
-        outputs[f"section-languages-{theme}.svg"] = render_section("03", "Languages", None, None, t)
+        outputs[f"section-projects-{theme}.svg"] = render_section("Projects", len(PROJECTS), "SCROLL →", t)
+        outputs[f"section-forks-{theme}.svg"] = render_section("Forks", fork_count, None, t)
+        outputs[f"section-languages-{theme}.svg"] = render_section("Languages", None, None, t)
         outputs[f"languages-{theme}.svg"] = render_languages(shares, len(repos), t)
-        for i, (name, area, desc) in enumerate(PROJECTS, 1):
+        for i, (name, area, desc) in enumerate(PROJECTS):
             if name not in repos:
                 print(f"warning: {name} is not a public repository of {USER}", file=sys.stderr)
-            gap_below = (i - 1) % SHELF_ROWS < SHELF_ROWS - 1
+            gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
             outputs[f"projects/{name}-{theme}.svg"] = render_project(
-                i, name, area, desc, repos.get(name, {}), gap_below, t)
+                name, area, desc, repos.get(name, {}), gap_below, t)
         for i, (title, forks) in enumerate(columns):
             outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
                 title, len(forks), HEADING_H[i >= COLUMNS], t)
