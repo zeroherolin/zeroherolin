@@ -254,11 +254,13 @@ def render_section(title, count, hint, t, hint_icon=None):
 
 # -- project cards -------------------------------------------------------------
 
-CARD_W, CARD_H, CARD_GAP = 236, 166, 12
+CARD_W, CARD_H, CARD_GAP = 236, 141, 12
 SHELF_ROWS = 2  # PROJECTS fill the shelf column by column, top to bottom
 
 
 def render_project(name, area, desc, repo, gap_below, t):
+    """Name and description; under a rule, language, stars and forks as on
+    GitHub's pinned repositories, with the area aligned to the right."""
     lang = repo.get("language")
     color = COLORS.get(lang, OTHER) if lang else OTHER
     x1, y1 = CARD_W - 0.5, CARD_H - 0.5
@@ -268,25 +270,28 @@ def render_project(name, area, desc, repo, gap_below, t):
             f'<stop offset="0" stop-color="{color}" stop-opacity=".1"/>'
             f'<stop offset=".55" stop-color="{color}" stop-opacity="0"/></linearGradient>')
     frame = f'x="0.5" y="0.5" width="{x1 - 0.5}" height="{y1 - 0.5}" rx="8"'
-    body = [f'<rect {frame} fill="{t["page"]}"/>', f'<rect {frame} fill="url(#wash)" stroke="{t["line"]}"/>',
-            text(left, 31, area.upper(), 10, t["muted"], spacing=1.5)]
+    body = [f'<rect {frame} fill="{t["page"]}"/>', f'<rect {frame} fill="url(#wash)" stroke="{t["line"]}"/>']
     label, size = fit(name, 15, right - left, 11)
-    body.append(text(left, 57, label, size, t["fg"], weight="600"))
+    body.append(text(left, 32, label, size, t["fg"], weight="600"))
     for i, line in enumerate(wrap(desc, 12, right - left, 3)):
-        body.append(text(left, 79 + i * 17, line, 12, t["muted"], cls="s"))
-    body.append(rule(left, right, 127.5, t))
+        body.append(text(left, 54 + i * 17, line, 12, t["muted"], cls="s"))
+    body.append(rule(left, right, 102.5, t))
 
-    base, x = 147, left
+    base, x, gap = 122, left, 10
     if lang:
         body.append(swatch(x, base - 8, 8, color, t))
         body.append(text(x + 14, base, lang, 11, t["muted"]))
-        x += 14 + mono_width(lang, 11) + 14
+        x += 14 + mono_width(lang, 11) + gap
     for key, glyph in (("stargazers_count", "star"), ("forks_count", "repo-forked")):
         count = repo.get(key, 0)
         if count:
             body.append(icon(glyph, x, base - 10, 12, t["faint"]))
             body.append(text(x + 16, base, str(count), 11, t["muted"]))
-            x += 16 + mono_width(str(count), 11) + 14
+            x += 16 + mono_width(str(count), 11) + gap
+    caps = area.upper()
+    if x - gap + 12 > right - mono_width(caps, 10, 1.2):
+        warn(f"{name}: language, stars and forks run into the area label")
+    body.append(text(right, base, caps, 10, t["muted"], anchor="end", spacing=1.2))
     height = CARD_H + (CARD_GAP if gap_below else 0)
     return svg(CARD_W + CARD_GAP, height, f"{name}: {desc}", "\n".join(body), defs)
 
