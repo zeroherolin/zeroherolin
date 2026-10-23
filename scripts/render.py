@@ -336,11 +336,11 @@ def render_fork_heading(title, count, height, t):
 
 # -- languages -----------------------------------------------------------------
 
-def render_languages(shares, repo_count, t):
+def render_languages(shares, t):
     cols, gap = 4, 3
     rows = math.ceil(len(shares) / cols)
     col_w = WIDTH / cols
-    height = 40 + rows * 24 + 18
+    height = 40 + (rows - 1) * 24 + 6
     body, x = [], 0.0
     usable = WIDTH - gap * (len(shares) - 1)
     for lang, share in shares:
@@ -353,8 +353,6 @@ def render_languages(shares, repo_count, t):
         body.append(swatch(cx, y - 9, 10, COLORS.get(lang, OTHER), t))
         body.append(text(cx + 18, y, lang, 12, t["fg"]))
         body.append(text(cx + col_w - 28, y, f"{share * 100:.1f}%", 12, t["muted"], anchor="end"))
-    body.append(text(0, height - 4, f"By code size across {repo_count} public repositories, forks excluded",
-                     10.5, t["faint"]))
     return svg(WIDTH, height, "Languages", "\n".join(body))
 
 
@@ -507,8 +505,9 @@ def main():
         outputs[f"section-projects-{theme}.svg"] = render_section("Projects", len(PROJECTS), "SCROLL →", t)
         outputs[f"section-forks-{theme}.svg"] = render_section(
             "Forks", len(fork_names), f"COMMITS BEHIND UPSTREAM · {today}", t, hint_icon="arrow-down")
-        outputs[f"section-languages-{theme}.svg"] = render_section("Languages", None, None, t)
-        outputs[f"languages-{theme}.svg"] = render_languages(shares, len(repos), t)
+        outputs[f"section-languages-{theme}.svg"] = render_section(
+            "Languages", None, f"BY CODE SIZE · {len(repos)} REPOS · FORKS EXCLUDED", t)
+        outputs[f"languages-{theme}.svg"] = render_languages(shares, t)
         for i, (name, area, desc) in enumerate(PROJECTS):
             if name not in repos:
                 print(f"warning: {name} is not a public repository of {USER}", file=sys.stderr)
