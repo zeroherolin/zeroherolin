@@ -307,7 +307,7 @@ def compact(n):
 
 def render_fork(name, behind, t):
     """Fork card; on the right a check if the default branch is level with
-    upstream, else the number of commits it is behind (nothing if unknown)."""
+    upstream, the number of commits it is behind, or an x if that is unknown."""
     x1 = TILE_W - 12.5
     right = x1 - 9
     body = [f'<rect x="0.5" y="5.5" width="{x1 - 0.5}" height="25" rx="4" fill="none" stroke="{t["faint"]}"/>']
@@ -320,7 +320,8 @@ def render_fork(name, behind, t):
         body.append(icon("arrow-down", right - status_w, 13, 10, t["faint"]))
         body.append(text(right, 22.5, label, 11, t["muted"], anchor="end"))
     else:
-        status_w, title = 0, name
+        status_w, title = 12, f"{name}: sync status unavailable"
+        body.append(icon("x", right - 12, 12, 12, t["muted"]))
     name_label, size = fit(name, 12, right - status_w - 10 - 12, 12)
     body.append(text(12, 22.5, name_label, size, t["fg"]))
     return svg(TILE_W, TILE_H, title, "\n".join(body))
@@ -444,16 +445,24 @@ def owned_repos():
     return repos
 
 
+def warn(message):
+    """To stderr; inside GitHub Actions, also an annotation on the run's summary page."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::warning::{message}")
+    else:
+        print(f"warning: {message}", file=sys.stderr)
+
+
 def fork_columns(forks):
     """FORKS limited to the given fork names, plus a column for the ones it misses."""
     listed = {name for _, names in FORKS for name in names}
     for name in sorted(listed - forks, key=str.lower):
-        print(f"warning: {name} is in FORKS but is not a fork of {USER}; skipped", file=sys.stderr)
+        warn(f"{name} is in FORKS but is not a fork of {USER}; skipped")
     columns = [(title, [n for n in names if n in forks]) for title, names in FORKS]
     columns = [(title, names) for title, names in columns if names]
     unlisted = sorted(forks - listed, key=str.lower)
     if unlisted:
-        print(f"warning: not in FORKS, shown as Uncategorized: {', '.join(unlisted)}", file=sys.stderr)
+        warn(f"not in FORKS, shown as Uncategorized: {', '.join(unlisted)}")
         columns.append(("Uncategorized", unlisted))
     return columns
 
@@ -467,8 +476,8 @@ def fork_status(name):
         cmp = get(f"https://api.github.com/repos/{USER}/{name}/compare/"
                   f"{urllib.parse.quote(repo['default_branch'], safe='')}...{urllib.parse.quote(head, safe=':')}")
         return cmp["ahead_by"]
-    except (urllib.error.URLError, KeyError, TimeoutError) as err:
-        print(f"warning: no sync status for {name}: {err}", file=sys.stderr)
+    except (urllib.error.URLError, KeyError, ValueError, TimeoutError) as err:
+        warn(f"no sync status for {name}: {err!r}")
         return None
 
 
@@ -506,11 +515,11 @@ def main():
         outputs[f"section-forks-{theme}.svg"] = render_section(
             "Forks", len(fork_names), f"COMMITS BEHIND UPSTREAM · {today}", t, hint_icon="arrow-down")
         outputs[f"section-languages-{theme}.svg"] = render_section(
-            "Languages", None, f"BY CODE SIZE · {len(repos)} REPOS · FORKS EXCLUDED", t)
+            "Languages", None, f"BY CODE SIZE · {len(repos)} REPOS", t)
         outputs[f"languages-{theme}.svg"] = render_languages(shares, t)
         for i, (name, area, desc) in enumerate(PROJECTS):
             if name not in repos:
-                print(f"warning: {name} is not a public repository of {USER}", file=sys.stderr)
+                warn(f"{name} is not a public repository of {USER}")
             gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
             outputs[f"projects/{name}-{theme}.svg"] = render_project(
                 name, area, desc, repos.get(name, {}), gap_below, t)
