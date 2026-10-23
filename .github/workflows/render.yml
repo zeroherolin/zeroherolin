@@ -11,9 +11,7 @@ on:
       - assets/icons/**
       - .github/workflows/render.yml
 
-permissions:
-  contents: write
-  actions: write  # for the keep-alive step
+permissions: {}
 
 concurrency:
   group: render
@@ -22,12 +20,16 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write  # push README.md to main and the images to output
+      actions: write   # re-enable this workflow (keep-alive)
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BOT_NAME: github-actions[bot]
       BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Render images and README
         run: python3 scripts/render.py
@@ -59,7 +61,7 @@ jobs:
 
       - name: Keep the schedule alive
         # GitHub disables scheduled workflows after 60 days without repository activity.
-        if: github.event_name == 'schedule'
+        if: github.event_name != 'push'
         run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/render.yml/enable"
         env:
           GH_TOKEN: ${{ github.token }}

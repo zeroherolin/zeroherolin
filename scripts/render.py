@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -98,9 +99,9 @@ STACK = [
 
 THEMES = {
     "light": {"fg": "#1f2328", "muted": "#59636e", "faint": "#8c959f", "line": "#d1d9e0",
-              "page": "#ffffff"},
+              "page": "#ffffff", "card": ("#ffffff", 1)},
     "dark": {"fg": "#f0f6fc", "muted": "#9198a1", "faint": "#656c76", "line": "#3d444d",
-             "page": "#0d1117"},
+             "page": "#0d1117", "card": ("#000000", .36)},
 }
 
 # github-linguist colors; anything missing falls back to gray.
@@ -270,7 +271,9 @@ def render_project(name, area, desc, repo, gap_below, t):
             f'<stop offset="0" stop-color="{color}" stop-opacity=".1"/>'
             f'<stop offset=".55" stop-color="{color}" stop-opacity="0"/></linearGradient>')
     frame = f'x="0.5" y="0.5" width="{x1 - 0.5}" height="{y1 - 0.5}" rx="8"'
-    body = [f'<rect {frame} fill="{t["page"]}"/>', f'<rect {frame} fill="url(#wash)" stroke="{t["line"]}"/>']
+    fill, opacity = t["card"]  # a veil, so dark cards sit a shade below the tray in every dark theme
+    body = [f'<rect {frame} fill="{fill}" fill-opacity="{opacity}"/>',
+            f'<rect {frame} fill="url(#wash)" stroke="{t["line"]}"/>']
     label, size = fit(name, 15, right - left, 11)
     body.append(text(left, 32, label, size, t["fg"], weight="600"))
     for i, line in enumerate(wrap(desc, 12, right - left, 3)):
@@ -364,11 +367,16 @@ def render_languages(shares, t):
 
 # -- README sections -----------------------------------------------------------
 
-def picture(path, alt, width=None):
-    """<picture> for build/<path>-{light,dark}.svg as published on the output branch."""
-    size = f' width="{width}"' if width else ""
+def attr(value):
+    return escape(value, {'"': "&quot;"})
+
+
+def picture(path, alt, width=None, tooltip=False):
+    """<picture> for build/<path>-{light,dark}.svg as published on the output branch;
+    with tooltip, the alt text also shows on hover."""
+    extra = (f' width="{width}"' if width else "") + (f' title="{attr(alt)}"' if tooltip else "")
     return (f'<picture><source media="(prefers-color-scheme: dark)" srcset="{IMAGES}{path}-dark.svg">'
-            f'<img src="{IMAGES}{path}-light.svg"{size} align="top" alt="{escape(alt)}"></picture>')
+            f'<img src="{IMAGES}{path}-light.svg"{extra} align="top" alt="{attr(alt)}"></picture>')
 
 
 def slug(title):
@@ -379,13 +387,13 @@ def shelf_html():
     # Inside <pre> whitespace shows: each shelf row is one line, and tags only
     # break lines inside themselves.
     rows = ["".join(f'<a\nhref="https://github.com/{USER}/{name}">'
-                    f'{picture(f"projects/{name}", name, CARD_W + CARD_GAP)}</a>'
-                    for name, _, _ in PROJECTS[row::SHELF_ROWS])
+                    f'{picture(f"projects/{name}", f"{name}: {desc}", CARD_W + CARD_GAP, tooltip=True)}</a>'
+                    for name, _, desc in PROJECTS[row::SHELF_ROWS])
             for row in range(SHELF_ROWS)]
     return "<pre>" + "\n".join(rows) + "</pre>"
 
 
-def grid_html(columns):
+def grid_html(columns, upstreams):
     width = f"{100 / COLUMNS:g}%"
     # Fills empty cells, so every row spans COLUMNS tiles; 1px tall, so it never sets a row's height.
     blank = f'<picture><img src="{IMAGES}forks/blank.svg" width="{width}" align="top" alt=""></picture>'
@@ -397,8 +405,10 @@ def grid_html(columns):
         for row in range(max(len(repos) for _, repos in block)):
             for _, repos in block:
                 if row < len(repos):
-                    tiles.append(f'<a href="https://github.com/{USER}/{repos[row]}">'
-                                 f'{picture(f"forks/{repos[row]}", repos[row], width)}</a>')
+                    name, upstream = repos[row], upstreams.get(repos[row])
+                    alt = f"{name}, a fork of {upstream}" if upstream else name
+                    tiles.append(f'<a href="https://github.com/{USER}/{name}">'
+                                 f'{picture(f"forks/{name}", alt, width, tooltip=True)}</a>')
                 else:
                     tiles.append(blank)
             tiles += pad
@@ -406,7 +416,7 @@ def grid_html(columns):
     return "<p>" + "".join(re.sub(r"^<(\w+)", "<\\1\n", tile) for tile in tiles) + "</p>"
 
 
-def readme_md(columns):
+def readme_md(columns, upstreams, shares):
     stack = ". ".join(f"{label}: {', '.join(name for name, _ in items)}" for label, items in STACK)
     local, domain = EMAIL.split("@")
     blocks = [
@@ -418,16 +428,17 @@ def readme_md(columns):
         picture("section-projects", "Projects", "100%"),
         shelf_html(),
         picture("section-forks", "Forks", "100%"),
-        grid_html(columns),
+        grid_html(columns, upstreams),
         picture("section-languages", "Languages", "100%"),
-        picture("languages", "Languages across my public repositories", "100%"),
+        picture("languages", "Languages by code size: " + ", ".join(lang for lang, _ in shares), "100%"),
     ]
     return "\n\n".join(blocks) + "\n"
 
 
 # -- GitHub API ----------------------------------------------------------------
 
-def get(url):
+def get(url, attempts=4):
+    """GET a GitHub API URL as JSON, retrying network errors, 5xx and rate limits."""
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json",
         "User-Agent": f"{USER}-profile",
@@ -435,8 +446,17 @@ def get(url):
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp)
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as err:
+            if err.code < 500 and err.code not in (403, 429) or attempt == attempts - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if attempt == attempts - 1:
+                raise
+        time.sleep(2 ** attempt)
 
 
 def owned_repos():
@@ -473,17 +493,20 @@ def fork_columns(forks):
 
 
 def fork_status(name):
-    """Commits the fork's default branch lacks from its upstream's, or None if unknown."""
+    """(upstream "owner/repo", commits the fork's default branch lacks from the
+    upstream's); either is None when it could not be fetched."""
+    upstream = None
     try:
         repo = get(f"https://api.github.com/repos/{USER}/{name}")
         parent = repo["parent"]
+        upstream = parent["full_name"]
         head = f"{parent['owner']['login']}:{parent['default_branch']}"
         cmp = get(f"https://api.github.com/repos/{USER}/{name}/compare/"
                   f"{urllib.parse.quote(repo['default_branch'], safe='')}...{urllib.parse.quote(head, safe=':')}")
-        return cmp["ahead_by"]
+        return upstream, cmp["ahead_by"]
     except (urllib.error.URLError, KeyError, ValueError, TimeoutError) as err:
         warn(f"no sync status for {name}: {err!r}")
-        return None
+        return upstream, None
 
 
 def language_shares(repos):
@@ -509,7 +532,9 @@ def main():
     columns = fork_columns({r["name"] for r in owned if r["fork"]})
     fork_names = [name for _, names in columns for name in names]
     with ThreadPoolExecutor(8) as pool:
-        behind = dict(zip(fork_names, pool.map(fork_status, fork_names)))
+        status = dict(zip(fork_names, pool.map(fork_status, fork_names)))
+    upstreams = {name: upstream for name, (upstream, _) in status.items()}
+    behind = {name: count for name, (_, count) in status.items()}
     today = datetime.now(TZ).strftime("%Y-%m-%d")
 
     outputs = {"forks/blank.svg": svg(TILE_W, 1, "", "")}
@@ -540,7 +565,7 @@ def main():
         path = BUILD / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    README.write_text(readme_md(columns), encoding="utf-8")
+    README.write_text(readme_md(columns, upstreams, shares), encoding="utf-8")
     known = [n for n in behind.values() if n is not None]
     print(f"rendered {len(outputs)} images into {BUILD.name}/ and wrote {README.name}; "
           f"forks up to date: {known.count(0)}, behind: {len(known) - known.count(0)}, unknown: {len(behind) - len(known)}")
