@@ -2,18 +2,18 @@ name: render
 
 on:
   schedule:
-    - cron: "0 0 * * 1"  # Mondays 00:00 UTC
+    - cron: "0 19 * * *"  # 03:00 China Standard Time
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - scripts/render.py
       - assets/icons/**
-      - README.md
       - .github/workflows/render.yml
 
 permissions:
   contents: write
+  actions: write  # for the keep-alive step
 
 concurrency:
   group: render
@@ -22,22 +22,44 @@ concurrency:
 jobs:
   render:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BOT_NAME: github-actions[bot]
+      BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
       - uses: actions/checkout@v7
 
-      - name: Render images and README sections
+      - name: Render images and README
         run: python3 scripts/render.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit if changed
+      - name: Publish images to the output branch
+        # One commit, replaced on each change, so the images never pile up history.
         run: |
-          git add assets README.md
+          cd build
+          git init -q -b output
+          git add -A
+          git -c user.name="$BOT_NAME" -c user.email="$BOT_EMAIL" commit -q -m "Rendered images"
+          url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth=1 "$url" output 2>/dev/null &&
+             [ "$(git rev-parse 'FETCH_HEAD^{tree}')" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+            echo "Images unchanged"
+          else
+            git push -q -f "$url" HEAD:output
+          fi
+
+      - name: Commit README if changed
+        run: |
+          git add README.md
           if git diff --cached --quiet; then
-            echo "No changes"
+            echo "README unchanged"
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Update rendered profile"
+          git -c user.name="$BOT_NAME" -c user.email="$BOT_EMAIL" commit -m "Update README"
           git push
+
+      - name: Keep the schedule alive
+        # GitHub disables scheduled workflows after 60 days without repository activity.
+        if: github.event_name == 'schedule'
+        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/render.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

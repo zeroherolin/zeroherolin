@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Render the images in README.md and its generated sections.
+"""Render README.md and the images it shows.
 
-Every image has a light and a dark variant; README.md picks one with <picture>.
+Images go to build/, which the workflow publishes as the single commit of the
+"output" branch; README.md (written in full here) links to them there. Every
+image has a light and a dark variant, picked with <picture>.
 
-  assets/name-*.svg                the name at the top
-  assets/stack-*.svg               languages and tooling
-  assets/section-<name>-*.svg      section titles
-  assets/projects/<repo>-*.svg     one card per project; stars, forks and language from the API
-  assets/forks/<repo>-*.svg        one small card per fork, plus column headings
-  assets/languages-*.svg           language share across public non-fork repositories
+  build/name-*.svg                the name at the top
+  build/stack-*.svg               languages and tools
+  build/section-<name>-*.svg      section titles
+  build/projects/<repo>-*.svg     one card per project; stars, forks and language from the API
+  build/forks/<repo>-*.svg        one small card per fork with its sync status, plus column headings
+  build/languages-*.svg           language share across public non-fork repositories
 
-The project shelf and the fork grid in README.md, between the BEGIN/END
-markers, are rewritten from PROJECTS and FORKS below.
 Uses only the standard library; GITHUB_TOKEN is optional but raises the rate limit.
 """
 
@@ -21,16 +21,23 @@ import os
 import re
 import shutil
 import sys
+import urllib.error
+import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 USER = os.environ.get("GITHUB_REPOSITORY_OWNER", "zeroherolin")
 NAME = "Linz"
+EMAIL = "zeroherolin@outlook.com"
 ROOT = Path(__file__).resolve().parent.parent
-ASSETS = ROOT / "assets"
-ICONS = ASSETS / "icons"
+ICONS = ROOT / "assets" / "icons"
+BUILD = ROOT / "build"
 README = ROOT / "README.md"
+IMAGES = f"https://raw.githubusercontent.com/{USER}/{USER}/output/"  # where build/ is published
+TZ = timezone(timedelta(hours=8))  # dates on the page are China Standard Time
 
 WIDTH = 840  # canvas of full-width images, about the width of a profile README
 MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace"
@@ -225,7 +232,7 @@ def render_stack(t):
 
 # -- section titles ------------------------------------------------------------
 
-def render_section(title, count, hint, t):
+def render_section(title, count, hint, t, hint_icon=None):
     height, base = 56, 40
     caps = title.upper()
     x = mono_width(caps, 13, 2.5)
@@ -236,7 +243,11 @@ def render_section(title, count, hint, t):
     end = WIDTH
     if hint:
         body.append(text(WIDTH, base, hint, 10.5, t["muted"], anchor="end", spacing=1))
-        end -= mono_width(hint, 10.5, 1) + 14
+        end -= mono_width(hint, 10.5, 1)
+        if hint_icon:
+            end -= 15
+            body.append(icon(hint_icon, end, base - 9, 10, t["muted"]))
+        end -= 14
     body.append(rule(x + 14, end, base - 4.5, t))
     return svg(WIDTH, height, title, "\n".join(body))
 
@@ -287,12 +298,32 @@ TILE_W, TILE_H = WIDTH // COLUMNS, 36  # includes a 12px gap on the right
 HEADING_H = (26, 48)                   # heading rows: first block, later blocks (spaced apart)
 
 
-def render_fork(name, t):
+def compact(n):
+    """1234 -> 1.2k, the way GitHub abbreviates counts."""
+    if n < 1000:
+        return str(n)
+    return f"{n / 1000:.1f}k" if n < 9950 else f"{round(n / 1000)}k"
+
+
+def render_fork(name, behind, t):
+    """Fork card; on the right a check if the default branch is level with
+    upstream, else the number of commits it is behind (nothing if unknown)."""
     x1 = TILE_W - 12.5
-    label, size = fit(name, 12, x1 - 24, 12)
-    body = [f'<rect x="0.5" y="5.5" width="{x1 - 0.5}" height="25" rx="4" fill="none" stroke="{t["faint"]}"/>',
-            text(12, 22.5, label, size, t["fg"])]
-    return svg(TILE_W, TILE_H, name, "\n".join(body))
+    right = x1 - 9
+    body = [f'<rect x="0.5" y="5.5" width="{x1 - 0.5}" height="25" rx="4" fill="none" stroke="{t["faint"]}"/>']
+    if behind == 0:
+        status_w, title = 12, f"{name}: up to date with upstream"
+        body.append(icon("check", right - 12, 12, 12, t["muted"]))
+    elif behind:
+        label = compact(behind)
+        status_w, title = mono_width(label, 11) + 12, f"{name}: {behind} commits behind upstream"
+        body.append(icon("arrow-down", right - status_w, 13, 10, t["faint"]))
+        body.append(text(right, 22.5, label, 11, t["muted"], anchor="end"))
+    else:
+        status_w, title = 0, name
+    name_label, size = fit(name, 12, right - status_w - 10 - 12, 12)
+    body.append(text(12, 22.5, name_label, size, t["fg"]))
+    return svg(TILE_W, TILE_H, title, "\n".join(body))
 
 
 def render_fork_heading(title, count, height, t):
@@ -330,9 +361,10 @@ def render_languages(shares, repo_count, t):
 # -- README sections -----------------------------------------------------------
 
 def picture(path, alt, width=None):
+    """<picture> for build/<path>-{light,dark}.svg as published on the output branch."""
     size = f' width="{width}"' if width else ""
-    return (f'<picture><source media="(prefers-color-scheme: dark)" srcset="{path}-dark.svg">'
-            f'<img src="{path}-light.svg"{size} align="top" alt="{escape(alt)}"></picture>')
+    return (f'<picture><source media="(prefers-color-scheme: dark)" srcset="{IMAGES}{path}-dark.svg">'
+            f'<img src="{IMAGES}{path}-light.svg"{size} align="top" alt="{escape(alt)}"></picture>')
 
 
 def slug(title):
@@ -343,7 +375,7 @@ def shelf_html():
     # Inside <pre> whitespace shows: each shelf row is one line, and tags only
     # break lines inside themselves.
     rows = ["".join(f'<a\nhref="https://github.com/{USER}/{name}">'
-                    f'{picture(f"assets/projects/{name}", name, CARD_W + CARD_GAP)}</a>'
+                    f'{picture(f"projects/{name}", name, CARD_W + CARD_GAP)}</a>'
                     for name, _, _ in PROJECTS[row::SHELF_ROWS])
             for row in range(SHELF_ROWS)]
     return "<pre>" + "\n".join(rows) + "</pre>"
@@ -352,17 +384,17 @@ def shelf_html():
 def grid_html(columns):
     width = f"{100 / COLUMNS:g}%"
     # Fills empty cells, so every row spans COLUMNS tiles; 1px tall, so it never sets a row's height.
-    blank = f'<picture><img src="assets/forks/blank.svg" width="{width}" align="top" alt=""></picture>'
+    blank = f'<picture><img src="{IMAGES}forks/blank.svg" width="{width}" align="top" alt=""></picture>'
     tiles = []
     for start in range(0, len(columns), COLUMNS):
         block = columns[start:start + COLUMNS]
         pad = [blank] * (COLUMNS - len(block))
-        tiles += [picture(f"assets/forks/_{slug(title)}", title, width) for title, _ in block] + pad
+        tiles += [picture(f"forks/_{slug(title)}", title, width) for title, _ in block] + pad
         for row in range(max(len(repos) for _, repos in block)):
             for _, repos in block:
                 if row < len(repos):
                     tiles.append(f'<a href="https://github.com/{USER}/{repos[row]}">'
-                                 f'{picture(f"assets/forks/{repos[row]}", repos[row], width)}</a>')
+                                 f'{picture(f"forks/{repos[row]}", repos[row], width)}</a>')
                 else:
                     tiles.append(blank)
             tiles += pad
@@ -370,11 +402,23 @@ def grid_html(columns):
     return "<p>" + "".join(re.sub(r"^<(\w+)", "<\\1\n", tile) for tile in tiles) + "</p>"
 
 
-def replace_section(readme, name, html):
-    pattern = re.compile(rf"(<!-- BEGIN {name} [^>]*-->\n).*?(<!-- END {name} -->)", re.S)
-    if not pattern.search(readme):
-        sys.exit(f"README.md has no BEGIN/END {name} markers")
-    return pattern.sub(lambda m: m.group(1) + html + "\n" + m.group(2), readme)
+def readme_md(columns):
+    stack = ". ".join(f"{label}: {', '.join(name for name, _ in items)}" for label, items in STACK)
+    local, domain = EMAIL.split("@")
+    blocks = [
+        "<!-- Generated by scripts/render.py; edit that instead. -->",
+        picture("name", NAME, "100%"),
+        # <wbr> keeps GitHub from autolinking the address out of <samp>; it is stripped on render.
+        f'<a href="mailto:{EMAIL}"><samp>{local}<wbr>@{domain}</samp></a>',
+        picture("stack", stack, "100%"),
+        picture("section-projects", "Projects", "100%"),
+        shelf_html(),
+        picture("section-forks", "Forks", "100%"),
+        grid_html(columns),
+        picture("section-languages", "Languages", "100%"),
+        picture("languages", "Languages across my public repositories", "100%"),
+    ]
+    return "\n\n".join(blocks) + "\n"
 
 
 # -- GitHub API ----------------------------------------------------------------
@@ -416,6 +460,20 @@ def fork_columns(forks):
     return columns
 
 
+def fork_status(name):
+    """Commits the fork's default branch lacks from its upstream's, or None if unknown."""
+    try:
+        repo = get(f"https://api.github.com/repos/{USER}/{name}")
+        parent = repo["parent"]
+        head = f"{parent['owner']['login']}:{parent['default_branch']}"
+        cmp = get(f"https://api.github.com/repos/{USER}/{name}/compare/"
+                  f"{urllib.parse.quote(repo['default_branch'], safe='')}...{urllib.parse.quote(head, safe=':')}")
+        return cmp["ahead_by"]
+    except (urllib.error.URLError, KeyError, TimeoutError) as err:
+        print(f"warning: no sync status for {name}: {err}", file=sys.stderr)
+        return None
+
+
 def language_shares(repos):
     totals = {}
     for repo in repos:
@@ -437,14 +495,18 @@ def main():
         sys.exit(f"no public non-fork repositories found for {USER}")
     shares = language_shares(repos.values())
     columns = fork_columns({r["name"] for r in owned if r["fork"]})
-    fork_count = sum(len(names) for _, names in columns)
+    fork_names = [name for _, names in columns for name in names]
+    with ThreadPoolExecutor(8) as pool:
+        behind = dict(zip(fork_names, pool.map(fork_status, fork_names)))
+    today = datetime.now(TZ).strftime("%Y-%m-%d")
 
     outputs = {"forks/blank.svg": svg(TILE_W, 1, "", "")}
     for theme, t in THEMES.items():
         outputs[f"name-{theme}.svg"] = render_name(t)
         outputs[f"stack-{theme}.svg"] = render_stack(t)
         outputs[f"section-projects-{theme}.svg"] = render_section("Projects", len(PROJECTS), "SCROLL →", t)
-        outputs[f"section-forks-{theme}.svg"] = render_section("Forks", fork_count, None, t)
+        outputs[f"section-forks-{theme}.svg"] = render_section(
+            "Forks", len(fork_names), f"COMMITS BEHIND UPSTREAM · {today}", t, hint_icon="arrow-down")
         outputs[f"section-languages-{theme}.svg"] = render_section("Languages", None, None, t)
         outputs[f"languages-{theme}.svg"] = render_languages(shares, len(repos), t)
         for i, (name, area, desc) in enumerate(PROJECTS):
@@ -457,20 +519,18 @@ def main():
             outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
                 title, len(forks), HEADING_H[i >= COLUMNS], t)
             for name in forks:
-                outputs[f"forks/{name}-{theme}.svg"] = render_fork(name, t)
+                outputs[f"forks/{name}-{theme}.svg"] = render_fork(name, behind[name], t)
 
-    # Start the generated folders afresh so removed projects and forks disappear.
-    for folder in ("projects", "forks"):
-        shutil.rmtree(ASSETS / folder, ignore_errors=True)
-        (ASSETS / folder).mkdir(parents=True)
+    # Start build/ afresh so removed projects and forks disappear.
+    shutil.rmtree(BUILD, ignore_errors=True)
     for rel, content in outputs.items():
-        (ASSETS / rel).write_text(content, encoding="utf-8")
-
-    readme = README.read_text(encoding="utf-8")
-    readme = replace_section(readme, "projects", shelf_html())
-    readme = replace_section(readme, "forks", grid_html(columns))
-    README.write_text(readme, encoding="utf-8")
-    print(f"rendered {len(outputs)} images and updated {README.name}")
+        path = BUILD / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    README.write_text(readme_md(columns), encoding="utf-8")
+    known = [n for n in behind.values() if n is not None]
+    print(f"rendered {len(outputs)} images into {BUILD.name}/ and wrote {README.name}; "
+          f"forks up to date: {known.count(0)}, behind: {len(known) - known.count(0)}, unknown: {len(behind) - len(known)}")
 
 
 if __name__ == "__main__":

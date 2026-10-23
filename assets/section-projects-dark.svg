@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="56" viewBox="0 0 840 56" role="img" aria-label="Projects">
-<title>Projects</title>
-<defs><style>.m{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}.s{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif}</style></defs>
-<text class="m" x="0.0" y="40.0" font-size="13" fill="#f0f6fc" font-weight="700" letter-spacing="2.5">PROJECTS</text>
-<text class="m" x="90.4" y="40.0" font-size="12" fill="#9198a1">11</text>
-<text class="m" x="840.0" y="40.0" font-size="10.5" fill="#9198a1" text-anchor="end" letter-spacing="1">SCROLL →</text>
-<path d="M 118.8 35.5 H 767.6" stroke="#3d444d"/>
-</svg>
