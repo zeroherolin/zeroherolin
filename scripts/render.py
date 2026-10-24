@@ -84,7 +84,7 @@ FORKS = [
     ("LLM inference", ["vllm", "sglang", "DeepInfer"]),
     ("Hardware compilers", ["circt", "allo", "ScaleHLS-HIDA", "pylog"]),
     ("FPGA & radar", ["dma_ip_drivers", "gtkwave", "PLFM_RADAR"]),
-    ("AI agents", ["wechat-cli", "catbus", "Godot-MCP-Native"]),
+    ("AI agents", ["wechat-cli", "catbus", "godot-ai"]),
     ("Learning", ["MLIR-Tutorial", "hands-on-practical-mlir-tutorial", "AdvancedCompiler", "AISystem",
                   "ai-infra-book", "ai-agent-book"]),
 ]
