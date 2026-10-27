@@ -10,7 +10,7 @@ image has a light and a dark variant, picked with <picture>.
   build/section-<name>-*.svg      section titles
   build/projects/<repo>-*.svg     one card per project; stars, forks and language from the API
   build/forks/<repo>-*.svg        one small card per fork with its sync status, plus column headings
-  build/languages-*.svg           language share across public non-fork repositories
+  build/languages-*.svg           language share, each public non-fork repository weighted equally
 
 README.md ends with a comment recording the repositories it was generated from;
 watch.py compares it with the account to see when to render again.
@@ -267,15 +267,17 @@ SHELF_ROWS = 2  # PROJECTS fill the shelf column by column, top to bottom
 
 def render_project(name, area, desc, repo, gap_below, t):
     """Name and description; under a rule, language, stars and forks as on
-    GitHub's pinned repositories, with the area aligned to the right."""
+    GitHub's pinned repositories, with the area aligned to the right. A card with
+    no area yet (a repository not in PROJECTS) is washed gray, not in its language color."""
     lang = repo.get("language")
     color = COLORS.get(lang, OTHER) if lang else OTHER
+    wash = color if area else OTHER
     x1, y1 = CARD_W - 0.5, CARD_H - 0.5
     left, right = 18, CARD_W - 18
     # A faint wash of the language color fades out halfway down the card.
     defs = (f'<linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0" stop-color="{color}" stop-opacity=".1"/>'
-            f'<stop offset=".55" stop-color="{color}" stop-opacity="0"/></linearGradient>')
+            f'<stop offset="0" stop-color="{wash}" stop-opacity=".1"/>'
+            f'<stop offset=".55" stop-color="{wash}" stop-opacity="0"/></linearGradient>')
     frame = f'x="0.5" y="0.5" width="{x1 - 0.5}" height="{y1 - 0.5}" rx="8"'
     fill, opacity = t["card"]  # a veil, so dark cards sit a shade below the tray in every dark theme
     body = [f'<rect {frame} fill="{fill}" fill-opacity="{opacity}"/>',
@@ -449,7 +451,7 @@ def readme_md(projects, columns, upstreams, shares, state):
         picture("section-forks", "Forks", "100%"),
         grid_html(grid_blocks(columns), upstreams),
         picture("section-languages", "Languages", "100%"),
-        picture("languages", "Languages by code size: " + ", ".join(lang for lang, _ in shares), "100%"),
+        picture("languages", "Languages, each repository weighted equally: " + ", ".join(lang for lang, _ in shares), "100%"),
         f"<!-- repos: {' '.join(state)} -->",  # for watch.py; see repo_state()
     ]
     return "\n\n".join(blocks) + "\n"
@@ -580,19 +582,25 @@ def repo_languages(repo):
 
 
 def language_shares(repos):
-    totals = {}
+    """(shares, repositories counted). Each repository with code counts once, split across
+    its languages by code size, so one large repository cannot outweigh all the others."""
+    totals, counted = {}, 0
     for repo in repos:
-        for lang, size in repo_languages(repo).items():
-            totals[lang] = totals.get(lang, 0) + size
-    total = sum(totals.values())
-    if not total:
-        return []
+        sizes = repo_languages(repo)
+        size = sum(sizes.values())
+        if not size:
+            continue
+        counted += 1
+        for lang, n in sizes.items():
+            totals[lang] = totals.get(lang, 0) + n / size
+    if not counted:
+        return [], 0
     ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
-    shares = [(lang, size / total) for lang, size in ranked[:TOP_LANGUAGES]]
-    rest = sum(size for _, size in ranked[TOP_LANGUAGES:])
+    shares = [(lang, weight / counted) for lang, weight in ranked[:TOP_LANGUAGES]]
+    rest = sum(weight for _, weight in ranked[TOP_LANGUAGES:])
     if rest:
-        shares.append(("Other", rest / total))
-    return shares
+        shares.append(("Other", rest / counted))
+    return shares, counted
 
 
 def main():
@@ -600,7 +608,7 @@ def main():
     repos = {r["name"]: r for r in owned if not r["fork"] and r["name"].lower() != USER.lower()}
     if not repos:
         sys.exit(f"no public non-fork repositories found for {USER}")
-    shares = language_shares(repos.values())
+    shares, counted = language_shares(repos.values())
     projects = shelf_projects(repos)
     columns = fork_columns({r["name"] for r in owned if r["fork"]})
     fork_names = [name for _, names in columns for name in names]
@@ -618,7 +626,7 @@ def main():
         outputs[f"section-forks-{theme}.svg"] = render_section(
             "Forks", len(fork_names), f"COMMITS BEHIND UPSTREAM · {today}", t, hint_icon="arrow-down")
         outputs[f"section-languages-{theme}.svg"] = render_section(
-            "Languages", None, f"BY CODE SIZE · {len(repos)} REPOS", t)
+            "Languages", None, f"PER REPOSITORY · {counted} REPOS", t)
         outputs[f"languages-{theme}.svg"] = render_languages(shares, t)
         for i, (name, area, desc) in enumerate(projects):
             gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
