@@ -298,11 +298,12 @@ def render_project(name, area, desc, repo, gap_below, t):
             body.append(text(x + 16, base, str(count), 11, t["muted"]))
             x += 16 + mono_width(str(count), 11) + gap
     caps = area.upper()
-    if x - gap + 12 > right - mono_width(caps, 10, 1.2):
-        warn(f"{name}: language, stars and forks run into the area label")
-    body.append(text(right, base, caps, 10, t["muted"], anchor="end", spacing=1.2))
+    if caps:
+        if x - gap + 12 > right - mono_width(caps, 10, 1.2):
+            warn(f"{name}: language, stars and forks run into the area label")
+        body.append(text(right, base, caps, 10, t["muted"], anchor="end", spacing=1.2))
     height = CARD_H + (CARD_GAP if gap_below else 0)
-    return svg(CARD_W + CARD_GAP, height, f"{name}: {desc}", "\n".join(body), defs)
+    return svg(CARD_W + CARD_GAP, height, f"{name}: {desc}" if desc else name, "\n".join(body), defs)
 
 
 # -- fork cards ------------------------------------------------------------------
@@ -393,7 +394,7 @@ def shelf_html(projects):
     # Inside <pre> whitespace shows: each shelf row is one line, and tags only
     # break lines inside themselves.
     rows = ["".join(f'<a\nhref="https://github.com/{USER}/{name}">'
-                    f'{picture(f"projects/{name}", f"{name}: {desc}", CARD_W + CARD_GAP, tooltip=True)}</a>'
+                    f'{picture(f"projects/{name}", f"{name}: {desc}" if desc else name, CARD_W + CARD_GAP, tooltip=True)}</a>'
                     for name, _, desc in projects[row::SHELF_ROWS])
             for row in range(SHELF_ROWS)]
     return "<pre>" + "\n".join(rows) + "</pre>"
@@ -524,6 +525,19 @@ def warn(message):
         print(f"warning: {message}", file=sys.stderr)
 
 
+def shelf_projects(repos):
+    """PROJECTS limited to the given original repositories, then a card for each one it
+    misses, newest first, with no description or area until it is listed."""
+    listed = {name for name, _, _ in PROJECTS}
+    for name in sorted(listed - set(repos), key=str.lower):
+        warn(f"{name} is in PROJECTS but is not a public repository of {USER}; skipped")
+    unlisted = sorted(set(repos) - listed, key=lambda n: repos[n].get("created_at") or "", reverse=True)
+    if unlisted:
+        warn(f"not in PROJECTS, shown last without an area: {', '.join(unlisted)}")
+    return ([p for p in PROJECTS if p[0] in repos] +
+            [(name, "", "") for name in unlisted])
+
+
 def fork_columns(forks):
     """FORKS limited to the given fork names, plus a column for the ones it misses."""
     listed = {name for _, names in FORKS for name in names}
@@ -587,12 +601,7 @@ def main():
     if not repos:
         sys.exit(f"no public non-fork repositories found for {USER}")
     shares = language_shares(repos.values())
-    projects = [p for p in PROJECTS if p[0] in repos]
-    for name in sorted({p[0] for p in PROJECTS} - set(repos), key=str.lower):
-        warn(f"{name} is in PROJECTS but is not a public repository of {USER}; skipped")
-    unlisted = sorted(set(repos) - {p[0] for p in PROJECTS}, key=str.lower)
-    if unlisted:
-        warn(f"not in PROJECTS, so no project card: {', '.join(unlisted)}")
+    projects = shelf_projects(repos)
     columns = fork_columns({r["name"] for r in owned if r["fork"]})
     fork_names = [name for _, names in columns for name in names]
     with ThreadPoolExecutor(8) as pool:
