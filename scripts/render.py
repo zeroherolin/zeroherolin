@@ -12,9 +12,12 @@ image has a light and a dark variant, picked with <picture>.
   build/forks/<repo>-*.svg        one small card per fork with its sync status, plus column headings
   build/languages-*.svg           language share across public non-fork repositories
 
+README.md ends with a comment recording the repositories it was generated from;
+watch.py compares it with the account to see when to render again.
 Uses only the standard library; GITHUB_TOKEN is optional but raises the rate limit.
 """
 
+import http.client
 import json
 import math
 import os
@@ -164,7 +167,7 @@ def fit(text, size, width, min_size):
     """Shrink a monospace label down to min_size to fit width, then cut it short."""
     while size > min_size and mono_width(text, size) > width:
         size -= 0.5
-    while mono_width(text, size) > width:
+    while len(text) > 1 and mono_width(text, size) > width:
         text = text[:-2] + "…"
     return text, size
 
@@ -386,12 +389,12 @@ def slug(title):
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
-def shelf_html():
+def shelf_html(projects):
     # Inside <pre> whitespace shows: each shelf row is one line, and tags only
     # break lines inside themselves.
     rows = ["".join(f'<a\nhref="https://github.com/{USER}/{name}">'
                     f'{picture(f"projects/{name}", f"{name}: {desc}", CARD_W + CARD_GAP, tooltip=True)}</a>'
-                    for name, _, desc in PROJECTS[row::SHELF_ROWS])
+                    for name, _, desc in projects[row::SHELF_ROWS])
             for row in range(SHELF_ROWS)]
     return "<pre>" + "\n".join(rows) + "</pre>"
 
@@ -431,7 +434,7 @@ def grid_html(blocks, upstreams):
     return "<p>" + "".join(re.sub(r"^<(\w+)", "<\\1\n", tile) for tile in tiles) + "</p>"
 
 
-def readme_md(columns, upstreams, shares):
+def readme_md(projects, columns, upstreams, shares, state):
     stack = ". ".join(f"{label}: {', '.join(name for name, _ in items)}" for label, items in STACK)
     local, domain = EMAIL.split("@")
     blocks = [
@@ -441,19 +444,35 @@ def readme_md(columns, upstreams, shares):
         f'<a href="mailto:{EMAIL}"><samp>{local}<wbr>@{domain}</samp></a>',
         picture("stack", stack, "100%"),
         picture("section-projects", "Projects", "100%"),
-        shelf_html(),
+        shelf_html(projects),
         picture("section-forks", "Forks", "100%"),
         grid_html(grid_blocks(columns), upstreams),
         picture("section-languages", "Languages", "100%"),
         picture("languages", "Languages by code size: " + ", ".join(lang for lang, _ in shares), "100%"),
+        f"<!-- repos: {' '.join(state)} -->",  # for watch.py; see repo_state()
     ]
     return "\n\n".join(blocks) + "\n"
 
 
 # -- GitHub API ----------------------------------------------------------------
 
+# Everything that can go wrong reading from the GitHub API, short of a bug here.
+NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException,
+                  json.JSONDecodeError)
+
+
+def transient(err):
+    """Whether a failed GitHub API request may succeed later: network trouble, garbled replies,
+    5xx, and rate limits (a 429, or a 403 that says so), but not 401, 404 and the like."""
+    if isinstance(err, urllib.error.HTTPError):
+        limited = err.headers.get("Retry-After") or err.headers.get("X-RateLimit-Remaining") == "0"
+        return err.code >= 500 or err.code == 429 or (err.code == 403 and bool(limited))
+    return True
+
+
 def get(url, attempts=4):
-    """GET a GitHub API URL as JSON, retrying network errors, 5xx and rate limits."""
+    """GET a GitHub API URL as JSON. Transient failures are retried with backoff (up to a
+    minute if Retry-After asks); anything else, and the last failure, is raised."""
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json",
         "User-Agent": f"{USER}-profile",
@@ -462,16 +481,17 @@ def get(url, attempts=4):
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     for attempt in range(attempts):
+        delay = 2 ** attempt
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return json.load(resp)
-        except urllib.error.HTTPError as err:
-            if err.code < 500 and err.code not in (403, 429) or attempt == attempts - 1:
+        except NETWORK_ERRORS as err:
+            if not transient(err) or attempt == attempts - 1:
                 raise
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
-            if attempt == attempts - 1:
-                raise
-        time.sleep(2 ** attempt)
+            retry_after = err.headers.get("Retry-After", "") if isinstance(err, urllib.error.HTTPError) else ""
+            if retry_after.isdigit():
+                delay = min(int(retry_after), 60)
+        time.sleep(delay)
 
 
 def owned_repos():
@@ -483,6 +503,17 @@ def owned_repos():
             break
         page += 1
     return repos
+
+
+def repo_state(owned):
+    """What the page depends on in the account besides counts, as one token per public
+    repository except the profile's own: "name:fork", "name:source", and "name:source:nolang"
+    until GitHub has detected a language (a new repository gets one a little after its first
+    push). README.md records it, last of all a render's changes, so a render that failed
+    halfway leaves a record that no longer matches and watch.py runs it again."""
+    return sorted(
+        f"{r['name']}:" + ("fork" if r["fork"] else "source" + ("" if r.get("language") else ":nolang"))
+        for r in owned if r["name"].lower() != USER.lower())
 
 
 def warn(message):
@@ -519,18 +550,30 @@ def fork_status(name):
         cmp = get(f"https://api.github.com/repos/{USER}/{name}/compare/"
                   f"{urllib.parse.quote(repo['default_branch'], safe='')}...{urllib.parse.quote(head, safe=':')}")
         return upstream, cmp["ahead_by"]
-    except (urllib.error.URLError, KeyError, ValueError, TimeoutError) as err:
+    except (*NETWORK_ERRORS, KeyError, TypeError) as err:  # a fork that cannot be read must not stop the page
         warn(f"no sync status for {name}: {err!r}")
         return upstream, None
+
+
+def repo_languages(repo):
+    """Bytes per language of one repository; none if that fails, so a repository deleted or
+    blocked a moment ago cannot stop the page."""
+    try:
+        return get(repo["languages_url"])
+    except NETWORK_ERRORS as err:
+        warn(f"no language data for {repo['name']}: {err!r}")
+        return {}
 
 
 def language_shares(repos):
     totals = {}
     for repo in repos:
-        for lang, size in get(repo["languages_url"]).items():
+        for lang, size in repo_languages(repo).items():
             totals[lang] = totals.get(lang, 0) + size
-    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
     total = sum(totals.values())
+    if not total:
+        return []
+    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
     shares = [(lang, size / total) for lang, size in ranked[:TOP_LANGUAGES]]
     rest = sum(size for _, size in ranked[TOP_LANGUAGES:])
     if rest:
@@ -544,6 +587,12 @@ def main():
     if not repos:
         sys.exit(f"no public non-fork repositories found for {USER}")
     shares = language_shares(repos.values())
+    projects = [p for p in PROJECTS if p[0] in repos]
+    for name in sorted({p[0] for p in PROJECTS} - set(repos), key=str.lower):
+        warn(f"{name} is in PROJECTS but is not a public repository of {USER}; skipped")
+    unlisted = sorted(set(repos) - {p[0] for p in PROJECTS}, key=str.lower)
+    if unlisted:
+        warn(f"not in PROJECTS, so no project card: {', '.join(unlisted)}")
     columns = fork_columns({r["name"] for r in owned if r["fork"]})
     fork_names = [name for _, names in columns for name in names]
     with ThreadPoolExecutor(8) as pool:
@@ -556,18 +605,16 @@ def main():
     for theme, t in THEMES.items():
         outputs[f"name-{theme}.svg"] = render_name(t)
         outputs[f"stack-{theme}.svg"] = render_stack(t)
-        outputs[f"section-projects-{theme}.svg"] = render_section("Projects", len(PROJECTS), "SCROLL →", t)
+        outputs[f"section-projects-{theme}.svg"] = render_section("Projects", len(projects), "SCROLL →", t)
         outputs[f"section-forks-{theme}.svg"] = render_section(
             "Forks", len(fork_names), f"COMMITS BEHIND UPSTREAM · {today}", t, hint_icon="arrow-down")
         outputs[f"section-languages-{theme}.svg"] = render_section(
             "Languages", None, f"BY CODE SIZE · {len(repos)} REPOS", t)
         outputs[f"languages-{theme}.svg"] = render_languages(shares, t)
-        for i, (name, area, desc) in enumerate(PROJECTS):
-            if name not in repos:
-                warn(f"{name} is not a public repository of {USER}")
+        for i, (name, area, desc) in enumerate(projects):
             gap_below = i % SHELF_ROWS < SHELF_ROWS - 1
             outputs[f"projects/{name}-{theme}.svg"] = render_project(
-                name, area, desc, repos.get(name, {}), gap_below, t)
+                name, area, desc, repos[name], gap_below, t)
         for b, (_, block) in enumerate(grid_blocks(columns)):
             for title, forks in block:
                 outputs[f"forks/_{slug(title)}-{theme}.svg"] = render_fork_heading(
@@ -581,7 +628,7 @@ def main():
         path = BUILD / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    README.write_text(readme_md(columns, upstreams, shares), encoding="utf-8")
+    README.write_text(readme_md(projects, columns, upstreams, shares, repo_state(owned)), encoding="utf-8")
     known = [n for n in behind.values() if n is not None]
     print(f"rendered {len(outputs)} images into {BUILD.name}/ and wrote {README.name}; "
           f"forks up to date: {known.count(0)}, behind: {len(known) - known.count(0)}, unknown: {len(behind) - len(known)}")

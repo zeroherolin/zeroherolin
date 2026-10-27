@@ -1,0 +1,32 @@
+name: watch
+
+# GitHub has no event for a repository being created or deleted on a personal
+# account, so poll the repository list and dispatch render.yml when it changes.
+# render.yml still runs daily for the data that changes without one (stars,
+# languages, how far each fork is behind).
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"  # every 15 minutes, off the busy :00 and :30 marks
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read  # check out the script
+      actions: write  # dispatch render.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Dispatch render.yml if the repository list changed
+        run: python3 scripts/watch.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}

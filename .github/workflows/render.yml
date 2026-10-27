@@ -15,7 +15,7 @@ permissions: {}
 
 concurrency:
   group: render
-  cancel-in-progress: true
+  cancel-in-progress: false  # a render is never stopped halfway through publishing; the next one waits
 
 jobs:
   render:
@@ -36,6 +36,7 @@ jobs:
 
       - name: Publish images to the output branch
         # One commit, replaced on each change, so the images never pile up history.
+        # Before the README, so the README never links to an image that is not there yet.
         run: |
           cd build
           git init -q -b output
@@ -45,23 +46,39 @@ jobs:
           if git fetch -q --depth=1 "$url" output 2>/dev/null &&
              [ "$(git rev-parse 'FETCH_HEAD^{tree}')" = "$(git rev-parse 'HEAD^{tree}')" ]; then
             echo "Images unchanged"
-          else
-            git push -q -f "$url" HEAD:output
+            exit 0
           fi
+          for attempt in 1 2 3; do
+            git push -q -f "$url" HEAD:output && exit 0
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not publish the images"
+          exit 1
 
       - name: Commit README if changed
+        # Last: README.md records which repositories it was generated from, so a run that
+        # fails before this point leaves a record that no longer matches, and watch.yml
+        # dispatches this workflow again.
         run: |
           git add README.md
           if git diff --cached --quiet; then
             echo "README unchanged"
             exit 0
           fi
-          git -c user.name="$BOT_NAME" -c user.email="$BOT_EMAIL" commit -m "Update README"
-          git push
+          git -c user.name="$BOT_NAME" -c user.email="$BOT_EMAIL" commit -q -m "Update README"
+          for attempt in 1 2 3; do
+            git push -q && exit 0
+            git -c user.name="$BOT_NAME" -c user.email="$BOT_EMAIL" pull --rebase -q || break
+          done
+          echo "::error::could not push README.md"
+          exit 1
 
-      - name: Keep the schedule alive
+      - name: Keep the schedules alive
         # GitHub disables scheduled workflows after 60 days without repository activity.
         if: github.event_name != 'push'
-        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/render.yml/enable"
+        run: |
+          for workflow in render.yml watch.yml; do
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/enable"
+          done
         env:
           GH_TOKEN: ${{ github.token }}
