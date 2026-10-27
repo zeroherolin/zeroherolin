@@ -149,17 +149,24 @@ def mono_width(text, size, spacing=0):
 
 
 def wrap(text, size, width, max_lines):
+    """Up to max_lines of text that fit width; a word too wide for a line, or text left over,
+    is cut short with an ellipsis."""
+    def fits(line):
+        return sans_width(line, size) * SLACK <= width
+
+    def shorten(line):
+        while len(line) > 1 and not fits(line + "…"):
+            line = line[:-1].rstrip()
+        return line + "…"
+
     lines = []
     for word in text.split():
-        if lines and sans_width(f"{lines[-1]} {word}", size) * SLACK <= width:
+        if lines and fits(f"{lines[-1]} {word}"):
             lines[-1] += f" {word}"
         else:
-            lines.append(word)
+            lines.append(word if fits(word) else shorten(word))
     if len(lines) > max_lines:
-        lines = lines[:max_lines]
-        while sans_width(lines[-1] + "…", size) * SLACK > width:
-            lines[-1] = lines[-1].rsplit(" ", 1)[0]
-        lines[-1] += "…"
+        lines = lines[:max_lines - 1] + [shorten(lines[max_lines - 1])]
     return lines
 
 
@@ -234,7 +241,7 @@ def render_stack(t):
         if x - gap > WIDTH:
             sys.exit(f"stack row {label!r} is {x - gap:.0f}px wide, over {WIDTH}")
         body.append(rule(0, WIDTH, (r + 1) * row_h + 0.5, t))
-    return svg(WIDTH, len(STACK) * row_h + 1, "Languages and tooling", "\n".join(body))
+    return svg(WIDTH, len(STACK) * row_h + 1, "Languages and tools", "\n".join(body))
 
 
 # -- section titles ------------------------------------------------------------
@@ -262,22 +269,20 @@ def render_section(title, count, hint, t, hint_icon=None):
 # -- project cards -------------------------------------------------------------
 
 CARD_W, CARD_H, CARD_GAP = 236, 141, 12
-SHELF_ROWS = 2  # PROJECTS fill the shelf column by column, top to bottom
+SHELF_ROWS = 2  # cards fill the shelf column by column, top to bottom
 
 
 def render_project(name, area, desc, repo, gap_below, t):
     """Name and description; under a rule, language, stars and forks as on
-    GitHub's pinned repositories, with the area aligned to the right. A card with
-    no area yet (a repository not in PROJECTS) is washed gray, not in its language color."""
+    GitHub's pinned repositories, with the area aligned to the right."""
     lang = repo.get("language")
     color = COLORS.get(lang, OTHER) if lang else OTHER
-    wash = color if area else OTHER
     x1, y1 = CARD_W - 0.5, CARD_H - 0.5
     left, right = 18, CARD_W - 18
     # A faint wash of the language color fades out halfway down the card.
     defs = (f'<linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0" stop-color="{wash}" stop-opacity=".1"/>'
-            f'<stop offset=".55" stop-color="{wash}" stop-opacity="0"/></linearGradient>')
+            f'<stop offset="0" stop-color="{color}" stop-opacity=".1"/>'
+            f'<stop offset=".55" stop-color="{color}" stop-opacity="0"/></linearGradient>')
     frame = f'x="0.5" y="0.5" width="{x1 - 0.5}" height="{y1 - 0.5}" rx="8"'
     fill, opacity = t["card"]  # a veil, so dark cards sit a shade below the tray in every dark theme
     body = [f'<rect {frame} fill="{fill}" fill-opacity="{opacity}"/>',
@@ -316,10 +321,12 @@ HEADING_H = (26, 40)                   # heading rows: first block, later blocks
 
 
 def compact(n):
-    """1234 -> 1.2k, the way GitHub abbreviates counts."""
-    if n < 1000:
-        return str(n)
-    return f"{n / 1000:.1f}k" if n < 9950 else f"{round(n / 1000)}k"
+    """1234 -> 1.2k and 1234567 -> 1.2m, the way GitHub abbreviates counts."""
+    for limit, unit in ((1_000_000, "m"), (1000, "k")):
+        if n >= limit * 0.9995:
+            v = n / limit
+            return f"{v:.1f}{unit}" if v < 9.95 else f"{round(v)}{unit}"
+    return str(n)
 
 
 def render_fork(name, behind, t):
