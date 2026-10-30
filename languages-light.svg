@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="70" viewBox="0 0 840 70" role="img" aria-label="Languages">
+<title>Languages</title>
+<defs><style>.m{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}.s{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif}</style></defs>
+<rect x="0.00" y="4" width="382.63" height="10" rx="2" fill="#3572A5"/>
+<rect x="385.63" y="4" width="135.95" height="10" rx="2" fill="#f1e05a"/>
+<rect x="524.58" y="4" width="82.69" height="10" rx="2" fill="#f34b7d"/>
+<rect x="610.27" y="4" width="79.38" height="10" rx="2" fill="#89e051"/>
+<rect x="692.65" y="4" width="67.23" height="10" rx="2" fill="#b2b7f8"/>
+<rect x="762.88" y="4" width="31.52" height="10" rx="2" fill="#3178c6"/>
+<rect x="797.40" y="4" width="14.64" height="10" rx="2" fill="#555555"/>
+<rect x="815.04" y="4" width="24.96" height="10" rx="2" fill="#8c959f"/>
+<rect x="0.0" y="31.0" width="10" height="10" rx="2" fill="#3572A5" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="18.0" y="40.0" font-size="12" fill="#1f2328">Python</text>
+<text class="m" x="182.0" y="40.0" font-size="12" fill="#59636e" text-anchor="end">46.7%</text>
+<rect x="210.0" y="31.0" width="10" height="10" rx="2" fill="#f1e05a" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="228.0" y="40.0" font-size="12" fill="#1f2328">JavaScript</text>
+<text class="m" x="392.0" y="40.0" font-size="12" fill="#59636e" text-anchor="end">16.6%</text>
+<rect x="420.0" y="31.0" width="10" height="10" rx="2" fill="#f34b7d" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="438.0" y="40.0" font-size="12" fill="#1f2328">C++</text>
+<text class="m" x="602.0" y="40.0" font-size="12" fill="#59636e" text-anchor="end">10.1%</text>
+<rect x="630.0" y="31.0" width="10" height="10" rx="2" fill="#89e051" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="648.0" y="40.0" font-size="12" fill="#1f2328">Shell</text>
+<text class="m" x="812.0" y="40.0" font-size="12" fill="#59636e" text-anchor="end">9.7%</text>
+<rect x="0.0" y="55.0" width="10" height="10" rx="2" fill="#b2b7f8" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="18.0" y="64.0" font-size="12" fill="#1f2328">Verilog</text>
+<text class="m" x="182.0" y="64.0" font-size="12" fill="#59636e" text-anchor="end">8.2%</text>
+<rect x="210.0" y="55.0" width="10" height="10" rx="2" fill="#3178c6" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="228.0" y="64.0" font-size="12" fill="#1f2328">TypeScript</text>
+<text class="m" x="392.0" y="64.0" font-size="12" fill="#59636e" text-anchor="end">3.8%</text>
+<rect x="420.0" y="55.0" width="10" height="10" rx="2" fill="#555555" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="438.0" y="64.0" font-size="12" fill="#1f2328">C</text>
+<text class="m" x="602.0" y="64.0" font-size="12" fill="#59636e" text-anchor="end">1.8%</text>
+<rect x="630.0" y="55.0" width="10" height="10" rx="2" fill="#8c959f" stroke="#1f2328" stroke-opacity=".12"/>
+<text class="m" x="648.0" y="64.0" font-size="12" fill="#1f2328">Other</text>
+<text class="m" x="812.0" y="64.0" font-size="12" fill="#59636e" text-anchor="end">3.0%</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="248" height="141" viewBox="0 0 248 141" role="img" aria-label="claw-code">
+<title>claw-code</title>
+<defs><style>.m{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}.s{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif}</style><linearGradient id="wash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1e05a" stop-opacity=".1"/><stop offset=".55" stop-color="#f1e05a" stop-opacity="0"/></linearGradient></defs>
+<rect x="0.5" y="0.5" width="235.0" height="140.0" rx="8" fill="#000000" fill-opacity="0.36"/>
+<rect x="0.5" y="0.5" width="235.0" height="140.0" rx="8" fill="url(#wash)" stroke="#3d444d"/>
+<text class="m" x="18.0" y="32.0" font-size="15" fill="#f0f6fc" font-weight="600">claw-code</text>
+<path d="M 18.0 102.5 H 218.0" stroke="#3d444d"/>
+<rect x="18.0" y="114.0" width="8" height="8" rx="1.6" fill="#f1e05a" stroke="#f0f6fc" stroke-opacity=".12"/>
+<text class="m" x="32.0" y="122.0" font-size="11" fill="#9198a1">JavaScript</text>
+</svg>
